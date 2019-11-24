@@ -1,6 +1,7 @@
 #include "rip.h"
 #include <stdint.h>
 #include <stdlib.h>
+#include <arpa/inet.h>
 
 /*
   在头文件 rip.h 中定义了如下的结构体：
@@ -29,6 +30,15 @@
   需要注意这里的地址都是用 **大端序** 存储的，1.2.3.4 对应 0x04030201 。
 */
 
+bool checkMask(const uint32_t mask) {
+    uint32_t p = 0, m = 1;
+    for (; p < 32 && !(mask & m); p++, m <<= 1);
+    for (; p < 32; p++, m <<= 1)
+        if (!(mask & m))
+            return false;
+    return true;
+}
+
 /**
  * @brief 从接受到的 IP 包解析出 Rip 协议的数据
  * @param packet 接受到的 IP 包
@@ -44,8 +54,57 @@
  * Mask 的二进制是不是连续的 1 与连续的 0 组成等等。
  */
 bool disassemble(const uint8_t *packet, uint32_t len, RipPacket *output) {
-  // TODO:
-  return false;
+    uint16_t total_len = ((uint16_t) packet[2] << 8) + packet[3];
+    if (total_len > len) return false;
+
+    uint32_t header_len = packet[0] & 0x0F;
+    header_len <<= 2; // IPV4 header length
+    uint32_t p = header_len + 8; // UDP length = 8, p -> Command
+
+    if (packet[p] != 1 && packet[p] != 2) return false; // Check if Command == 1 or 2
+    output->command = packet[p];
+    uint16_t expected_family = output->command == 1 ? 0 : 2;
+
+    p += 1; // p -> Version
+    if (packet[p] != 2) return false; // Check if Version == 2
+
+    p += 3; // p -> IP Address
+    uint32_t i = 0;
+    for (; p < len; i++) {
+        uint16_t family = ((uint16_t) packet[p] << 8) + packet[p + 1];
+        if (family != expected_family) return false; // Check if family == expected_family
+
+        p += 2; // p -> Tag
+        uint16_t tag = ((uint16_t) packet[p] << 8) + packet[p + 1];
+        if (tag != 0) return false; // Check if tag == 0
+
+        p += 2; // p -> Address
+        output->entries[i].addr = 0;
+        for (int j = 3; j >= 0; j--)
+            output->entries[i].addr = (output->entries[i].addr << 8) + packet[p + j];
+
+        p += 4; // p -> Mask
+        output->entries[i].mask = 0;
+        for (int j = 3; j >= 0; j--)
+            output->entries[i].mask = (output->entries[i].mask << 8) + packet[p + j];
+        if (!checkMask(ntohl(output->entries[i].mask))) return false; // Check if Mask is valid
+
+        p += 4; // p -> NextHop
+        output->entries[i].nexthop = 0;
+        for (int j = 3; j >= 0; j--)
+            output->entries[i].nexthop = (output->entries[i].nexthop << 8) + packet[p + j];
+
+        p += 4; // p -> Metric
+        output->entries[i].metric = 0;
+        for (int j = 3; j >= 0; j--)
+            output->entries[i].metric = (output->entries[i].metric << 8) + packet[p + j];
+        if (ntohl(output->entries[i].metric) < 1 || 16 < ntohl(output->entries[i].metric))
+            return false; // Check if 1 <= Metric <= 16
+
+        p += 4; // p -> Family
+    }
+    output->numEntries = i;
+    return true;
 }
 
 /**
@@ -59,6 +118,23 @@ bool disassemble(const uint8_t *packet, uint32_t len, RipPacket *output) {
  * 需要注意一些没有保存在 RipPacket 结构体内的数据的填写。
  */
 uint32_t assemble(const RipPacket *rip, uint8_t *buffer) {
-  // TODO:
-  return 0;
+    buffer[0] = rip->command;
+    buffer[1] = 2;
+    buffer[2] = buffer[3] = 0;
+    uint16_t family = rip->command == 1 ? 0 : 2;
+    uint32_t p = 4;
+    for (int i = 0; i < rip->numEntries; i++) {
+        buffer[p++] = 0;
+        buffer[p++] = family;
+        buffer[p++] = buffer[p++] = 0;
+        for (int j = 0; j < 4; j++)
+            buffer[p++] = (rip->entries[i].addr >> (8 * j)) & 0xFF;
+        for (int j = 0; j < 4; j++)
+            buffer[p++] = (rip->entries[i].mask >> (8 * j)) & 0xFF;
+        for (int j = 0; j < 4; j++)
+            buffer[p++] = (rip->entries[i].nexthop >> (8 * j)) & 0xFF;
+        for (int j = 0; j < 4; j++)
+            buffer[p++] = (rip->entries[i].metric >> (8 * j)) & 0xFF;
+    }
+    return p;
 }
