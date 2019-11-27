@@ -50,11 +50,9 @@ void update(bool insert, RoutingTableEntry entry) {
         }
         tableEntry[p++] = entry;
     } else {
-        for (int i = 0; i < p; i++) {
-            if (tableEntry[i].addr == entry.addr && tableEntry[i].len == entry.len) {
+        for (int i = 0; i < p; i++)
+            if (tableEntry[i].addr == entry.addr && tableEntry[i].len == entry.len)
                 tableEntry[i] = tableEntry[--p];
-            }
-        }
     }
 }
 

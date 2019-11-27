@@ -8,17 +8,17 @@
  * @return 计算得出的 IP 头的校验和
  */
 uint16_t calculateIPChecksum(uint8_t *packet, size_t len) {
-    uint8_t header_len = packet[0] & 0x0F;
-    uint16_t *ip_header = (uint16_t *) packet;
-    uint16_t old_sum = ip_header[5];
-    ip_header[5] = 0;
+    uint8_t header_len = packet[0] & 0x0F; // number of 4-bytes
+    packet[10] = packet[11] = 0;
     uint32_t sum = 0;
-    for (size_t i = 0; i < header_len << 1; i++)
-        sum += ip_header[i];
+    for (size_t i = 0; i < (uint32_t) header_len << 1; i++)
+        sum += packet[2 * i] << 8 | packet[2 * i + 1];
     while (sum >> 16 > 0)
         sum = (sum >> 16) + (sum & 0xFFFF);
-    ip_header[5] = old_sum;
-    return ~sum & 0xFFFF;
+    sum = ~sum & 0xFFFF;
+    packet[10] = sum >> 8;
+    packet[11] = sum & 0xFF;
+    return sum;
 }
 
 /**
@@ -28,8 +28,7 @@ uint16_t calculateIPChecksum(uint8_t *packet, size_t len) {
  * @return 校验和无误则返回 true ，有误则返回 false
  */
 bool validateIPChecksum(uint8_t *packet, size_t len) {
-    uint16_t *ip_header = (uint16_t *) packet;
-    uint16_t old_sum = ip_header[5];
+    uint16_t old_sum = (uint16_t) packet[10] << 8 | packet[11];
     uint16_t new_sum = calculateIPChecksum(packet, len);
     return new_sum == old_sum;
 }
