@@ -70,7 +70,7 @@ bool disassemble(const uint8_t *packet, uint32_t len, RipPacket *output) {
 
     p += 3; // p -> IP Address
     uint32_t i = 0;
-    for (; p < len; i++) {
+    for (; p < total_len; i++) {
         uint16_t family = ((uint16_t) packet[p] << 8) + packet[p + 1];
         if (family != expected_family) return false; // Check if family == expected_family
 
