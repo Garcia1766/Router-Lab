@@ -81,7 +81,7 @@ int main(int argc, char *argv[]) {
                 .len = 24,        // small endian
                 .if_index = i,    // small endian
                 .nexthop = 0,     // big endian, means direct
-                .metric = 0,
+                .metric = 1,
                 .from = 4
         };
         update(true, entry);
@@ -255,7 +255,7 @@ int main(int argc, char *argv[]) {
                                     .len = maskLength(ntohl(rip.entries[i].mask)),
                                     .if_index = (uint32_t) if_index,
                                     .nexthop = src_addr,
-                                    .metric = ntohl(rip.entries[i].metric),
+                                    .metric = ntohl(rip.entries[i].metric) + 1,
                                     .from = if_index
                             };
                             update(true, entry);
