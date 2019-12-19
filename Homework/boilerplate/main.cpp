@@ -90,7 +90,7 @@ int main(int argc, char *argv[]) {
     // 10.0.1.0/24 if 1
     // 10.0.2.0/24 if 2
     // 10.0.3.0/24 if 3
-    for (uint32_t i = 0; i < 2; i++) { // i < N_IFACE_ON_BOARD
+    for (uint32_t i = 0; i < 4; i++) { // i < N_IFACE_ON_BOARD
         RoutingTableEntry entry = {
                 .addr = addrs[i] & 0x00FFFFFF, // big endian
                 .len = 24,        // small endian
@@ -118,7 +118,7 @@ int main(int argc, char *argv[]) {
         if (time > last_time + 5 * 1000) {
             debug();
 
-            for (int i = 0; i < 2; i++) {
+            for (int i = 0; i < 4; i++) {
                 printf("send %08x > %08x @ %d response\n", addrs[i], rip_multicast, i);
                 RipPacket resp;
 
