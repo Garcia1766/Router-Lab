@@ -7,11 +7,17 @@
 #include <string.h>
 
 extern uint16_t calculateIPChecksum(unsigned char *packet);
+
 extern bool validateIPChecksum(uint8_t *packet, size_t len);
+
 extern void update(bool insert, RoutingTableEntry entry);
+
 extern bool query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index, uint32_t *metric);
+
 extern bool forward(uint8_t *packet, size_t len);
+
 extern bool disassemble(const uint8_t *packet, uint32_t len, RipPacket *output);
+
 extern uint32_t assemble(const RipPacket *rip, uint8_t *buffer);
 
 extern RoutingTableEntry tableEntry[100];
@@ -57,9 +63,18 @@ void debug() {
     printf("addr     len      ifIndex  nextHop  metric\n");
     printf("======== ======== ======== ======== ========\n");
     for (int i = 0; i < p; i++) {
-        printf("%08x %02d       %02d       %08x %02d\n", tableEntry[i].addr, tableEntry[i].len, tableEntry[i].if_index, tableEntry[i].nexthop, tableEntry[i].metric);
+        printf("%08x %02d       %02d       %08x %02d\n", tableEntry[i].addr, tableEntry[i].len, tableEntry[i].if_index,
+               tableEntry[i].nexthop, tableEntry[i].metric);
     }
     printf("======== ======== ======== ======== ========\n\n");
+}
+
+int query_router_entry(uint32_t addr, uint32_t len) {
+    for (int i = 0; i < p; ++i) {
+        if (tableEntry[i].addr == addr && tableEntry[i].len == len)
+            return i;
+    }
+    return -1;
 }
 
 int main(int argc, char *argv[]) {
@@ -104,42 +119,42 @@ int main(int argc, char *argv[]) {
             debug();
 
             for (int i = 0; i < 2; i++) {
-                    printf("send %08x > %08x @ %d response\n", addrs[i], rip_multicast, i);
-                    RipPacket resp;
+                printf("send %08x > %08x @ %d response\n", addrs[i], rip_multicast, i);
+                RipPacket resp;
 
-                    put_uint8(output, 0, 0x45); // ipv4 20字节
-                    put_uint8(output, 8, 0x01); // TTL
-                    put_uint8(output, 9, 0x11); // UDP
+                put_uint8(output, 0, 0x45); // ipv4 20字节
+                put_uint8(output, 8, 0x01); // TTL
+                put_uint8(output, 9, 0x11); // UDP
 
-                    put_uint32(output, 12, ntohl(addrs[i])); // 源地址
-                    put_uint32(output, 16, ntohl(rip_multicast)); // 目的地址
+                put_uint32(output, 12, ntohl(addrs[i])); // 源地址
+                put_uint32(output, 16, ntohl(rip_multicast)); // 目的地址
 
-                    put_uint16(output, 20, 0x0208); // UDP端口号
-                    put_uint16(output, 22, 0x0208); //
+                put_uint16(output, 20, 0x0208); // UDP端口号
+                put_uint16(output, 22, 0x0208); //
 
-                    resp.numEntries = 0; // 转发表项数
-                    resp.command = 2; // response
-                    for (int j = 0; j < p; j++) { // 路由表里的项全加入转发表
-                        if (tableEntry[j].from != i) {
-                            resp.entries[resp.numEntries].addr = tableEntry[j].addr;
-                            resp.entries[resp.numEntries].mask = un_mask[tableEntry[j].len];
-                            //resp.entries[resp.numEntries].nexthop = tableEntry[j].nexthop;
-                            resp.entries[resp.numEntries].nexthop = addrs[i]
-                            resp.entries[resp.numEntries].metric = ntohl(tableEntry[j].metric + 1);
-                            resp.numEntries++;
-                        }
+                resp.numEntries = 0; // 转发表项数
+                resp.command = 2; // response
+                for (int j = 0; j < p; j++) { // 路由表里的项全加入转发表
+                    if (tableEntry[j].from != i) {
+                        resp.entries[resp.numEntries].addr = tableEntry[j].addr;
+                        resp.entries[resp.numEntries].mask = un_mask[tableEntry[j].len];
+                        //resp.entries[resp.numEntries].nexthop = tableEntry[j].nexthop;
+                        resp.entries[resp.numEntries].nexthop = addrs[i]
+                        resp.entries[resp.numEntries].metric = ntohl(tableEntry[j].metric + 1);
+                        resp.numEntries++;
                     }
-                    uint32_t rip_len = assemble(&resp, &output[20 + 8]);
+                }
+                uint32_t rip_len = assemble(&resp, &output[20 + 8]);
 
-                    put_uint16(output, 2, 20 + 8 + rip_len);
-                    put_uint16(output, 24, 8 + rip_len);
+                put_uint16(output, 2, 20 + 8 + rip_len);
+                put_uint16(output, 24, 8 + rip_len);
 
-                    put_uint16(output, 10, calculateIPChecksum(output));
+                put_uint16(output, 10, calculateIPChecksum(output));
 
-                    macaddr_t rip_mac = {0x01, 0x00, 0x5e, 0x00, 0x00, 0x09}; // 组播MAC地址
-                    HAL_SendIPPacket(i, output, 20 + 8 + rip_len, rip_mac);
+                macaddr_t rip_mac = {0x01, 0x00, 0x5e, 0x00, 0x00, 0x09}; // 组播MAC地址
+                HAL_SendIPPacket(i, output, 20 + 8 + rip_len, rip_mac);
             }
-            
+
             last_time = time;
         }
 
@@ -246,9 +261,9 @@ int main(int argc, char *argv[]) {
                     // TODO: use query and update
                     // triggered updates? ref. RFC2453 3.10.1
                     printf("recv %08x > %08x response\n", src_addr, dst_addr);
-                    uint32_t nxthop, if_idx, metric;
+                    //uint32_t nxthop, if_idx, metric;
                     for (int i = 0; i < rip.numEntries; i++) {
-                        if (!query(rip.entries[i].addr, &nxthop, &if_idx, &metric) ||
+                        /*if (!query(rip.entries[i].addr, &nxthop, &if_idx, &metric) ||
                             ntohl(rip.entries[i].metric) < metric || // 收到的metric 小于自己的 metric
                             nxthop == src_addr) {
                             RoutingTableEntry entry = {
@@ -260,6 +275,37 @@ int main(int argc, char *argv[]) {
                                     .from = if_index
                             };
                             update(true, entry);
+                        }
+                         */
+                        RipEntry &r_entry = rip.entries[i];
+                        int metric = ntohl(r_entry.metric) + 1; // 新的metrix为收到的metrix+1
+                        uint32_t len = maskLength(ntohl(r_entry.mask));
+                        int idx = query_router_entry(r_entry.addr, len);
+                        if (idx >= 0) {  // 若查找到则为表项序号，否则为-1
+                            RoutingTableEntry &rte = tableEntry[idx]; // 查找到的表项的引用
+                            if (rte.nexthop == 0)
+                                continue; // 如果是直连路由则直接跳过
+                            if (rte.if_index == if_index) {
+                                if (metric > 16) {
+                                    rte = tableEntry[--p]; // 直接操作数组删除表项
+                                } else {
+                                    rte.if_index = if_index;
+                                    rte.metric = ntohl(metric);
+                                    rte.nexthop = src_addr;
+                                }
+                            } else if (metric < ntohl(rte.metric)) {
+                                rte.if_index = if_index;
+                                rte.metric = ntohl(metric);
+                                rte.nexthop = src_addr;
+                            }
+                            // 没有查到，且metrix小于16，一定是直接插入新的表项
+                        } else if (metric <= 16) { // 直接操作数组插入新的表项
+                            RoutingTableEntry &rte = tableEntry[p++];
+                            rte.addr = r_entry.addr;
+                            rte.if_index = if_index;
+                            rte.len = len;
+                            rte.metric = ntohl(metric);
+                            rte.nexthop = src_addr;
                         }
                     }
                 }
