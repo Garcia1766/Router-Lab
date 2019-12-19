@@ -15,13 +15,13 @@ extern bool disassemble(const uint8_t *packet, uint32_t len, RipPacket *output);
 extern uint32_t assemble(const RipPacket *rip, uint8_t *buffer);
 
 extern RoutingTableEntry tableEntry[100];
-extern uint32_t p;
+extern uint32_t p; // 路由表总条数
 extern uint32_t un_mask[33];
 
-const uint32_t rip_multicast = 0x090000e0;
-//macaddr_t rip_mac = {0x01, 0x00, 0x5e, 0x00, 0x00, 0x09};
-uint8_t packet[2048];
-uint8_t output[2048];
+const uint32_t rip_multicast = 0x090000e0; // 组播IP 224.0.0.9
+//macaddr_t rip_mac = {0x01, 0x00, 0x5e, 0x00, 0x00, 0x09}; // 组播MAC
+uint8_t packet[2048]; // 收到的IP包
+uint8_t output[2048]; // 发出的IP包
 // 0: 10.0.0.1
 // 1: 10.0.1.1
 // 2: 10.0.2.1
@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
         update(true, entry);
     }
 
-    uint64_t last_time = 0;
+    uint64_t last_time = 0; // 开始时间
     while (1) {
         uint64_t time = HAL_GetTicks();
         /*
@@ -107,19 +107,19 @@ int main(int argc, char *argv[]) {
                     printf("send %08x > %08x @ %d response\n", addrs[i], rip_multicast, i);
                     RipPacket resp;
 
-                    put_uint8(output, 0, 0x45);
-                    put_uint8(output, 8, 0x01);
-                    put_uint8(output, 9, 0x11);
+                    put_uint8(output, 0, 0x45); // ipv4 20字节
+                    put_uint8(output, 8, 0x01); // TTL
+                    put_uint8(output, 9, 0x11); // UDP
 
-                    put_uint32(output, 12, ntohl(addrs[i]));
-                    put_uint32(output, 16, ntohl(rip_multicast));
+                    put_uint32(output, 12, ntohl(addrs[i])); // 源地址
+                    put_uint32(output, 16, ntohl(rip_multicast)); // 目的地址
 
-                    put_uint16(output, 20, 0x0208);
-                    put_uint16(output, 22, 0x0208);
+                    put_uint16(output, 20, 0x0208); // UDP端口号
+                    put_uint16(output, 22, 0x0208); //
 
-                    resp.numEntries = 0;
-                    resp.command = 2;
-                    for (int j = 0; j < p; j++) {
+                    resp.numEntries = 0; // 转发表项数
+                    resp.command = 2; // response
+                    for (int j = 0; j < p; j++) { // 路由表里的项全加入转发表
                         if (tableEntry[j].from != i) {
                             resp.entries[resp.numEntries].addr = tableEntry[j].addr;
                             resp.entries[resp.numEntries].mask = un_mask[tableEntry[j].len];
@@ -135,7 +135,7 @@ int main(int argc, char *argv[]) {
 
                     put_uint16(output, 10, calculateIPChecksum(output));
 
-                    macaddr_t rip_mac = {0x01, 0x00, 0x5e, 0x00, 0x00, 0x09};
+                    macaddr_t rip_mac = {0x01, 0x00, 0x5e, 0x00, 0x00, 0x09}; // 组播MAC地址
                     HAL_SendIPPacket(i, output, 20 + 8 + rip_len, rip_mac);
             }
             
@@ -180,14 +180,14 @@ int main(int argc, char *argv[]) {
             }
         }
         // TODO: Handle rip multicast address(224.0.0.9)?
-        dst_is_me |= dst_addr == rip_multicast;
+        dst_is_me |= (dst_addr == rip_multicast);
 
         if (dst_is_me) {
             // 3a.1
             RipPacket rip;
             // check and validate
             if (disassemble(packet, res, &rip)) {
-                if (rip.command == 1) {
+                if (rip.command == 1) { // receive a request
                     printf("recv %08x > %08x request\n", src_addr, dst_addr);
                     // 3a.3 request, ref. RFC2453 3.9.1
                     // only need to respond to whole table requests in the lab
@@ -206,7 +206,7 @@ int main(int argc, char *argv[]) {
                     resp.numEntries = 0;
                     resp.command = 2;
                     for (int i = 0; i < p; i++) {
-                        if (tableEntry[i].from != if_index) {
+                        if (tableEntry[i].from != if_index) { // 水平分割算法
                             resp.entries[resp.numEntries].addr = tableEntry[i].addr;
                             resp.entries[resp.numEntries].mask = un_mask[tableEntry[i].len];
                             resp.entries[resp.numEntries].nexthop = tableEntry[i].nexthop;
@@ -236,7 +236,7 @@ int main(int argc, char *argv[]) {
 
                     printf("send %08x > %08x response\n", addrs[if_index], src_addr);
                     HAL_SendIPPacket(if_index, output, rip_len + 20 + 8, src_mac);
-                } else {
+                } else { // receive a response
                     // 3a.2 response, ref. RFC2453 3.9.2
                     // update routing table
                     // new metric = ?
@@ -248,14 +248,14 @@ int main(int argc, char *argv[]) {
                     uint32_t nxthop, if_idx, metric;
                     for (int i = 0; i < rip.numEntries; i++) {
                         if (!query(rip.entries[i].addr, &nxthop, &if_idx, &metric) ||
-                            ntohl(rip.entries[i].metric) < metric ||
+                            ntohl(rip.entries[i].metric) < metric || // 收到的metric 小于自己的 metric
                             nxthop == src_addr) {
                             RoutingTableEntry entry = {
                                     .addr = rip.entries[i].addr & un_mask[maskLength(ntohl(rip.entries[i].mask))],
                                     .len = maskLength(ntohl(rip.entries[i].mask)),
                                     .if_index = (uint32_t) if_index,
                                     .nexthop = src_addr,
-                                    .metric = ntohl(rip.entries[i].metric) + 1,
+                                    .metric = ntohl(rip.entries[i].metric),
                                     .from = if_index
                             };
                             update(true, entry);
@@ -270,22 +270,22 @@ int main(int argc, char *argv[]) {
             // forward
             // beware of endianness
             uint32_t nexthop, dest_if, met;
-            if (query(dst_addr, &nexthop, &dest_if, &met) && met < 16) {
+            if (query(dst_addr, &nexthop, &dest_if, &met) && met < 16) { // 目的地址找到了
                 // found
                 macaddr_t dest_mac;
                 // direct routing
                 if (nexthop == 0) {
                     nexthop = dst_addr;
                 }
-                if (HAL_ArpGetMacAddress(dest_if, nexthop, dest_mac) == 0) {
+                if (HAL_ArpGetMacAddress(dest_if, nexthop, dest_mac) == 0) { // 算出下一跳的dest_mac
                     // found
                     memcpy(output, packet, res);
                     // update ttl and checksum
                     forward(output, res);
                     // TODO: you might want to check ttl=0 case
-                    if (output[8]) {
+                    if (output[8]) { // TTL > 0
                         HAL_SendIPPacket(dest_if, output, res, dest_mac);
-                    } else {
+                    } else { // 构造ICMP time exceeded
                         // time exceeded
                         put_uint8(output, 0, 0x45);
                         put_uint8(output, 8, 0xff);
