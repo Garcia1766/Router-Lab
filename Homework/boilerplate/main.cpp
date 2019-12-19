@@ -123,7 +123,8 @@ int main(int argc, char *argv[]) {
                         if (tableEntry[j].from != i) {
                             resp.entries[resp.numEntries].addr = tableEntry[j].addr;
                             resp.entries[resp.numEntries].mask = un_mask[tableEntry[j].len];
-                            resp.entries[resp.numEntries].nexthop = tableEntry[j].nexthop;
+                            //resp.entries[resp.numEntries].nexthop = tableEntry[j].nexthop;
+                            resp.entries[resp.numEntries].nexthop = addrs[i]
                             resp.entries[resp.numEntries].metric = ntohl(tableEntry[j].metric + 1);
                             resp.numEntries++;
                         }
@@ -209,7 +210,7 @@ int main(int argc, char *argv[]) {
                         if (tableEntry[i].from != if_index) { // 水平分割算法
                             resp.entries[resp.numEntries].addr = tableEntry[i].addr;
                             resp.entries[resp.numEntries].mask = un_mask[tableEntry[i].len];
-                            resp.entries[resp.numEntries].nexthop = tableEntry[i].nexthop;
+                            resp.entries[resp.numEntries].nexthop = addrs[if_index];
                             resp.entries[resp.numEntries].metric = ntohl(tableEntry[i].metric + 1);
                             resp.numEntries++;
                         }
