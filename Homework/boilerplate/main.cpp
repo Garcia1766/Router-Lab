@@ -59,14 +59,14 @@ uint32_t maskLength(uint32_t mask) {
 }
 
 void debug() {
-    printf("\n======== ======== ======== ======== ========\n");
-    printf("addr     len      ifIndex  nextHop  metric\n");
-    printf("======== ======== ======== ======== ========\n");
+    printf("\n======== ======== ======== ======== ======== ========\n");
+    printf("addr     len      ifIndex  nextHop  metric   from\n");
+    printf("======== ======== ======== ======== ======== ========\n");
     for (int i = 0; i < p; i++) {
-        printf("%08x %02d       %02d       %08x %02d\n", tableEntry[i].addr, tableEntry[i].len, tableEntry[i].if_index,
-               tableEntry[i].nexthop, tableEntry[i].metric);
+        printf("%08x %02d       %02d       %08x %02d       %02d\n", tableEntry[i].addr, tableEntry[i].len, tableEntry[i].if_index,
+               tableEntry[i].nexthop, tableEntry[i].metric, tableEntry[i].from);
     }
-    printf("======== ======== ======== ======== ========\n\n");
+    printf("======== ======== ======== ======== ======== ========\n\n");
 }
 
 int query_router_entry(uint32_t addr, uint32_t len) {
@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
                 .if_index = i,    // small endian
                 .nexthop = 0,     // big endian, means direct
                 .metric = 1,
-                .from = 4
+                .from = i
         };
         update(true, entry);
     }
@@ -135,12 +135,12 @@ int main(int argc, char *argv[]) {
                 resp.numEntries = 0; // 转发表项数
                 resp.command = 2; // response
                 for (int j = 0; j < p; j++) { // 路由表里的项全加入转发表
-                    if (tableEntry[j].from != i) {
+                    if (tableEntry[j].if_index != i) {
                         resp.entries[resp.numEntries].addr = tableEntry[j].addr;
                         resp.entries[resp.numEntries].mask = un_mask[tableEntry[j].len];
                         //resp.entries[resp.numEntries].nexthop = tableEntry[j].nexthop;
-                        resp.entries[resp.numEntries].nexthop = addrs[i]
-                        resp.entries[resp.numEntries].metric = ntohl(tableEntry[j].metric + 1);
+                        resp.entries[resp.numEntries].nexthop = addrs[i];
+                        resp.entries[resp.numEntries].metric = ntohl(tableEntry[j].metric);
                         resp.numEntries++;
                     }
                 }
@@ -222,11 +222,11 @@ int main(int argc, char *argv[]) {
                     resp.numEntries = 0;
                     resp.command = 2;
                     for (int i = 0; i < p; i++) {
-                        if (tableEntry[i].from != if_index) { // 水平分割算法
+                        if (tableEntry[i].if_index != if_index) { // 水平分割算法
                             resp.entries[resp.numEntries].addr = tableEntry[i].addr;
                             resp.entries[resp.numEntries].mask = un_mask[tableEntry[i].len];
                             resp.entries[resp.numEntries].nexthop = addrs[if_index];
-                            resp.entries[resp.numEntries].metric = ntohl(tableEntry[i].metric + 1);
+                            resp.entries[resp.numEntries].metric = ntohl(tableEntry[i].metric);
                             resp.numEntries++;
                         }
                     }
@@ -290,13 +290,15 @@ int main(int argc, char *argv[]) {
                                     rte = tableEntry[--p]; // 直接操作数组删除表项
                                 } else {
                                     rte.if_index = if_index;
-                                    rte.metric = ntohl(metric);
+                                    rte.metric = (metric);
                                     rte.nexthop = src_addr;
+				    rte.from = if_index;
                                 }
-                            } else if (metric < ntohl(rte.metric)) {
+                            } else if (metric < (rte.metric)) {
                                 rte.if_index = if_index;
-                                rte.metric = ntohl(metric);
+                                rte.metric = (metric);
                                 rte.nexthop = src_addr;
+				rte.from = if_index;
                             }
                             // 没有查到，且metrix小于16，一定是直接插入新的表项
                         } else if (metric <= 16) { // 直接操作数组插入新的表项
@@ -304,8 +306,9 @@ int main(int argc, char *argv[]) {
                             rte.addr = r_entry.addr;
                             rte.if_index = if_index;
                             rte.len = len;
-                            rte.metric = ntohl(metric);
+                            rte.metric = (metric);
                             rte.nexthop = src_addr;
+			    rte.from = if_index;
                         }
                     }
                 }
