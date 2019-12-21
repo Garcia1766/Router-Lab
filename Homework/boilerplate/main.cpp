@@ -145,8 +145,20 @@ int main(int argc, char *argv[]) {
                         resp.entries[resp.numEntries].nexthop = addrs[i];
                         resp.entries[resp.numEntries].metric = ntohl(tableEntry[j].metric);
                         resp.numEntries++;
+
+                        if (resp.numEntries == 25) {
+                            uint32_t rip_len = assemble(&resp, &output[20 + 8]);
+                            put_uint16(output, 2, 20 + 8 + rip_len);
+                            put_uint16(output, 24, 8 + rip_len);
+                            put_uint16(output, 10, calculateIPChecksum(output));
+                            // printf("send %08x > %08x response\n", addrs[if_index], src_addr);
+                            macaddr_t rip_mac = {0x01, 0x00, 0x5e, 0x00, 0x00, 0x09}; // 组播MAC地址
+                            HAL_SendIPPacket(i, output, rip_len + 20 + 8, rip_mac);
+                            resp.numEntries = 0;
+                        }
                     }
                 }
+                if (resp.numEntries == 0) continue;
                 printf("send %08x > %08x response222\n", 2, 2);
                 uint32_t rip_len = assemble(&resp, &output[20 + 8]);
 
