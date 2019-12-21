@@ -231,6 +231,16 @@ int main(int argc, char *argv[]) {
                             resp.entries[resp.numEntries].nexthop = addrs[if_index];
                             resp.entries[resp.numEntries].metric = ntohl(tableEntry[i].metric);
                             resp.numEntries++;
+
+                            if (resp.numEntries == 25) {
+                                uint32_t rip_len = assemble(&resp, &output[20 + 8]);
+                                put_uint16(output, 2, 20 + 8 + rip_len);
+                                put_uint16(output, 24, 8 + rip_len);
+                                put_uint16(output, 10, calculateIPChecksum(output));
+                                // printf("send %08x > %08x response\n", addrs[if_index], src_addr);
+                                HAL_SendIPPacket(if_index, output, rip_len + 20 + 8, src_mac);
+                                resp.numEntries = 0;
+                            }
                         }
                     }
                     // TODO: fill resp
@@ -244,6 +254,9 @@ int main(int argc, char *argv[]) {
                     //output[21] = 0x08;
                     // ...
                     // RIP
+                    if (resp.numEntries == 0) {
+                        continue;
+                    }
                     uint32_t rip_len = assemble(&resp, &output[20 + 8]);
                     // checksum calculation for ip and udp
                     // if you don't want to calculate udp checksum, set it to zero
@@ -295,13 +308,13 @@ int main(int argc, char *argv[]) {
                                     rte.if_index = if_index;
                                     rte.metric = (metric);
                                     rte.nexthop = src_addr;
-				    rte.from = if_index;
+				                    rte.from = if_index;
                                 }
                             } else if (metric < (rte.metric)) {
                                 rte.if_index = if_index;
                                 rte.metric = (metric);
                                 rte.nexthop = src_addr;
-				rte.from = if_index;
+				                rte.from = if_index;
                             }
                             // 没有查到，且metrix小于16，一定是直接插入新的表项
                         } else if (metric <= 16) { // 直接操作数组插入新的表项
@@ -311,7 +324,7 @@ int main(int argc, char *argv[]) {
                             rte.len = len;
                             rte.metric = (metric);
                             rte.nexthop = src_addr;
-			    rte.from = if_index;
+			                rte.from = if_index;
                         }
                     }
                 }
