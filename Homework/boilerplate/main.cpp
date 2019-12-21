@@ -40,10 +40,13 @@ void put_uint8(uint8_t *out, size_t p, uint8_t v) {
     out[p + 0] = (v >> 0) & 0xff;
 }
 
+extern void put_uint16(uint8_t *out, size_t p, uint16_t v);
+/*
 void put_uint16(uint8_t *out, size_t p, uint16_t v) {
     out[p + 0] = (v >> 8) & 0xff;
     out[p + 1] = (v >> 0) & 0xff;
 }
+*/
 
 void put_uint32(uint8_t *out, size_t p, uint32_t v) {
     out[p + 0] = (v >> 24) & 0xff;
