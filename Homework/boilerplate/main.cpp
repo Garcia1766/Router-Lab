@@ -180,7 +180,7 @@ int main(int argc, char *argv[]) {
         }
 
         // 1. validate
-        if (!validateIPChecksum(packet, res)) {
+        if (!forward(packet, res)) {
             printf("Invalid IP Checksum\n");
             continue;
         }
@@ -334,7 +334,7 @@ int main(int argc, char *argv[]) {
                     // found
                     memcpy(output, packet, res);
                     // update ttl and checksum
-                    forward(output, res);
+                    // forward(output, res);
                     // TODO: you might want to check ttl=0 case
                     if (output[8]) { // TTL > 0
                         HAL_SendIPPacket(dest_if, output, res, dest_mac);
