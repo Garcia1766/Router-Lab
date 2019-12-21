@@ -19,7 +19,7 @@
   你可以在全局变量中把路由表以一定的数据结构格式保存下来。
 */
 
-RoutingTableEntry tableEntry[6000];
+RoutingTableEntry tableEntry[10000];
 int p = 0;  // 表尾+1
 uint32_t un_mask[33] = {0x00000000,
                   0x00000080, 0x000000c0, 0x000000e0, 0x000000f0,
