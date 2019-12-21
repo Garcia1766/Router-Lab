@@ -20,7 +20,7 @@ extern bool disassemble(const uint8_t *packet, uint32_t len, RipPacket *output);
 
 extern uint32_t assemble(const RipPacket *rip, uint8_t *buffer);
 
-extern RoutingTableEntry tableEntry[100];
+extern RoutingTableEntry tableEntry[6000];
 extern uint32_t p; // 路由表总条数
 extern uint32_t un_mask[33];
 
