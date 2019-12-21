@@ -7,11 +7,10 @@
  * @param p 改变的位置
  * @param v 改成的 uint16_t 值
  */
-/*void put_uint16(uint8_t *out, size_t p, uint16_t v) {
+void put_uint16(uint8_t *out, size_t p, uint16_t v) {
     out[p] = (v >> 8) & 0xFF;
     out[p + 1] = (v >> 0) & 0xFF;
-}*/
-extern void put_uint16(uint8_t *out, size_t p, uint16_t v);
+}
 
 /**
  * @brief 计算 IP 头的校验和
@@ -77,7 +76,10 @@ bool forward(uint8_t *packet, size_t len) {
     if (new_sum != old_sum)
         return false;
     packet[8]--;
-    total_sum -= 1 << 8;
-    put_uint16(packet, 10, total_sum);
+    sum = total_sum - (1 << 8);
+    while (sum >> 16 > 0)
+        sum = (sum >> 16) + (sum & 0xFFFF);
+    sum = ~sum & 0xFFFF;
+    put_uint16(packet, 10, sum);
     return true;
 }
