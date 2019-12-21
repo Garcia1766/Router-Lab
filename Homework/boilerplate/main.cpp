@@ -69,7 +69,8 @@ void debug() {
         printf("%08x %02d       %02d       %08x %02d       %02d\n", tableEntry[i].addr, tableEntry[i].len, tableEntry[i].if_index,
                tableEntry[i].nexthop, tableEntry[i].metric, tableEntry[i].from);
     }
-    printf("======== ======== ======== ======== ======== ========\n\n");
+    printf("======== ======== ======== ======== ======== ========\n");
+    printf("Routing table scale: %08d\n\n", p);
 }
 
 int query_router_entry(uint32_t addr, uint32_t len) {
@@ -159,7 +160,7 @@ int main(int argc, char *argv[]) {
                     }
                 }
                 if (resp.numEntries == 0) continue;
-                printf("send %08x > %08x response222\n", 2, 2);
+                //printf("send %08x > %08x response222\n", 2, 2);
                 uint32_t rip_len = assemble(&resp, &output[20 + 8]);
 
                 put_uint16(output, 2, 20 + 8 + rip_len);
@@ -169,7 +170,7 @@ int main(int argc, char *argv[]) {
 
                 macaddr_t rip_mac = {0x01, 0x00, 0x5e, 0x00, 0x00, 0x09}; // 组播MAC地址
                 HAL_SendIPPacket(i, output, 20 + 8 + rip_len, rip_mac);
-                printf("send %08x > %08x response333\n", 3, 3);
+                //printf("send %08x > %08x response333\n", 3, 3);
             }
 
             last_time = time;
@@ -282,7 +283,7 @@ int main(int argc, char *argv[]) {
 
                     printf("send %08x > %08x response\n", addrs[if_index], src_addr);
                     HAL_SendIPPacket(if_index, output, rip_len + 20 + 8, src_mac);
-                    printf("send %08x > %08x response222\n", addrs[if_index], src_addr);
+                    //printf("send %08x > %08x response222\n", addrs[if_index], src_addr);
                 } else { // receive a response
                     // 3a.2 response, ref. RFC2453 3.9.2
                     // update routing table
